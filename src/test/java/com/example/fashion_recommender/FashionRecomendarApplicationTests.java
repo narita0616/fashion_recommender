@@ -1,4 +1,4 @@
-package com.example.fashion_recomendar;
+package com.example.fashion_recomender;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

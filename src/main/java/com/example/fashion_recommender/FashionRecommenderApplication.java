@@ -1,13 +1,13 @@
-package com.example.fashion_recomendar;
+package com.example.fashion_recommender;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class FashionRecomendarApplication {
+public class FashionRecomenderApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(FashionRecomendarApplication.class, args);
+		SpringApplication.run(FashionRecomenderApplication.class, args);
 	}
 
 }
