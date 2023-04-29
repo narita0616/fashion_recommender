@@ -1,10 +1,19 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>$Title$</title>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link th:href="@{/css/top.css}" rel="stylesheet">
 </head>
 <body>
-$END$
+    <div class="top">
+        <div class="top-title">
+            <h1>[[${title}]]</h1>
+        </div>
+        <div class="top-form">
+            <input type="text" class="top-form-input">
+        </div>
+    </div>
 </body>
 </html>

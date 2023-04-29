@@ -1,2 +1,0 @@
-# fashion_recommender
-ファッション推薦システムの前身プロジェクト
