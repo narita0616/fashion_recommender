@@ -7,13 +7,12 @@
     <link th:href="@{/css/top.css}" rel="stylesheet">
 </head>
 <body>
-    <div class="top">
-        <div class="top-title">
-            <h1>[[${title}]]</h1>
-        </div>
-        <div class="top-form">
-            <input type="text" class="top-form-input">
-        </div>
+    <div class="top-title">
+        <h1>[[${title}]]</h1>
     </div>
+    <form method="POST" action="/top">
+        <input type="text" class="top-form" name="keyword">
+        <input type="submit" value="登録" class="top-button">
+    </form>
 </body>
 </html>

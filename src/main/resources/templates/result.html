@@ -1,0 +1,17 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link th:href="@{/css/result.css}" rel="stylesheet">
+</head>
+<body>
+    <h1>あなたへのおすすめブランド：[[${brandName1}]]</h1>
+    <h1>あなたへのおすすめブランド：[[${brandName2}]]</h1>
+    <h1>あなたへのおすすめブランド：[[${brandName3}]]</h1>
+    <form method="GET" action="/top">
+        <input type="submit" value="戻る" class="top-button">
+    </form>
+</body>
+</html>

@@ -1,15 +1,920 @@
 package com.example.fashion_recommender.contoroller;
 
+import com.atilika.kuromoji.ipadic.Token;
+import com.atilika.kuromoji.ipadic.Tokenizer;
+import okhttp3.*;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+import java.util.Map.Entry;
 
 @Controller
 public class FashionRecommenderController {
 
+    private String brandName1;
+    private String brandName2;
+    private String brandName3;
+
+    OkHttpClient client = new OkHttpClient();
+
+    private String run(String url) throws IOException {
+        Request request = new Request.Builder().url(url).build();
+        try (Response response = client.newCall(request).execute()) {
+            return response.body().string();
+        }
+    }
+
+    private Tokenizer makeTokenizer(String userDictionaryEntry) throws IOException {
+        return new Tokenizer.Builder()
+                .userDictionary(
+                        makeUserDictionaryStream(userDictionaryEntry)
+                )
+                .build();
+    }
+    private ByteArrayInputStream makeUserDictionaryStream(String userDictionary) {
+        return new ByteArrayInputStream(
+                userDictionary.getBytes(StandardCharsets.UTF_8)
+        );
+    }
+
+
     @GetMapping("/top")
-    public String getTop(Model model){
+    public String getTop(Model model) {
         model.addAttribute("title", "検索フォーム");
         return "top.html";
     }
+
+    @PostMapping("/top")
+    public String postTop(@RequestParam("keyword") String keyword) throws IOException {
+
+        Map<String, Integer> countBrandName = new HashMap<>();
+
+//        フォームに入力されたキーワードで、10件の検索結果を取得
+        String url = "https://www.google.co.jp/search?hl=ja&num=50&q=" + keyword + "+ファッション+ブランド";
+
+//        HTTPリクエスト
+        String html = this.run(url);
+
+//        HTMLパース
+        Document doc = Jsoup.parse(html);
+        Element link = doc.select("a").first();
+
+//        記述されているテキストの取得
+        String resultHtmlText = doc.body().text();
+
+//        形態素解析
+        Tokenizer tokenizer = makeTokenizer(userDictionary);
+
+        List<Token> tokens = tokenizer.tokenize(resultHtmlText);
+
+        for (Token token : tokens) {
+            if(token.getPartOfSpeechLevel1().equals("カスタム名詞")){
+
+                if (countBrandName.get(token.getSurface()) == null) {
+                    countBrandName.put(token.getSurface(), 1);
+                }else{
+                    Integer value = countBrandName.get(token.getSurface());
+                    countBrandName.put(token.getSurface(), value + 1);
+                }
+            }
+        }
+
+        List<Entry<String, Integer>> list = new ArrayList<>(countBrandName.entrySet());
+        list.sort(Entry.comparingByValue(Comparator.reverseOrder()));
+
+        this.brandName1 = list.get(0).getKey();
+        this.brandName2 = list.get(1).getKey();
+        this.brandName3 = list.get(2).getKey();
+        return "redirect:/result";
+    }
+    @GetMapping("/result")
+    public String getResult(Model model) {
+        model.addAttribute("brandName1", this.brandName1);
+        model.addAttribute("brandName2", this.brandName2);
+        model.addAttribute("brandName3", this.brandName3);
+        return "result.html";
+    }
+
+//    辞書
+    private String userDictionary =
+        "コムデギャルソン,コムデギャルソン,コムデギャルソン,カスタム名詞\n" +
+        "COMMEdesGARCONS,コムデギャルソン,コムデギャルソン,カスタム名詞\n" +
+        "ヨウジヤマモト,ヨウジヤマモト,ヨウジヤマモト,カスタム名詞\n" +
+        "YohjiYamamoto,ヨウジヤマモト,ヨウジヤマモト,カスタム名詞" +
+        "ABATHINGAPE,アベイシングエイプ,アベイシングエイプ,カスタム名詞\n" +
+        "A.P.C.,エーピーシー,エーピーシー,カスタム名詞\n" +
+        "AcneStudios,アクネストゥディオズ,アクネストゥディオズ,カスタム名詞\n" +
+        "ADAMETROPE,アダムエロペ,アダムエロペ,カスタム名詞\n" +
+        "ADDICTION,アディクション,アディクション,カスタム名詞\n" +
+        "adidas,アディダス,アディダス,カスタム名詞\n" +
+        "Aesop,イソップ,イソップ,カスタム名詞\n" +
+        "Aeta,アエタ,アエタ,カスタム名詞\n" +
+        "agnesb.,アニエスベー,アニエスベー,カスタム名詞\n" +
+        "AGNONA,アニョーナ,アニョーナ,カスタム名詞\n" +
+        "AHKAH,アーカー,アーカー,カスタム名詞\n" +
+        "AKANEUTSUNOMIYA,ウツノミヤアカネ,ウツノミヤアカネ,カスタム名詞\n" +
+        "AKIKOAOKI,アキコアオキ,アキコアオキ,カスタム名詞\n" +
+        "AKIRANAKA,アキラナカ,アキラナカ,カスタム名詞\n" +
+        "ALAIA,アライア,アライア,カスタム名詞\n" +
+        "alainmikli,アランミクリ,アランミクリ,カスタム名詞\n" +
+        "ALANUI,アラヌイ,アラヌイ,カスタム名詞\n" +
+        "ALBERTAFERRETTI,アルベルタフェレッティ,アルベルタフェレッティ,カスタム名詞\n" +
+        "ALBION,アルビオン,アルビオン,カスタム名詞\n" +
+        "ALDEN,オールデン,オールデン,カスタム名詞\n" +
+        "ALETTEBLANC,アレットブラン,アレットブラン,カスタム名詞\n" +
+        "AlexanderMcQueen,アレキサンダーマックイーン,アレキサンダーマックイーン,カスタム名詞\n" +
+        "alexanderwang,アレキサンダーワン,アレキサンダーワン,カスタム名詞\n" +
+        "ALEXISMABILLE,アレクシスマビユ,アレクシスマビユ,カスタム名詞\n" +
+        "alice +olivia,アリスアンドオリビア,アリスアンドオリビア,カスタム名詞\n" +
+        "aliceauaa,アリスアウアア,アリスアウアア,カスタム名詞\n" +
+        "ALLEGE,アレッジ,アレッジ,カスタム名詞\n" +
+        "AMACA,アマカ,アマカ,カスタム名詞\n" +
+        "AMBELL,アンベル,アンベル,カスタム名詞\n" +
+        "AMBUSH,アンブッシュ,アンブッシュ,カスタム名詞\n" +
+        "AMIPARIS,アミパリ,アミパリ,カスタム名詞\n" +
+        "amiu.c,アミユシー,アミユシー,カスタム名詞\n" +
+        "ANDERSEN-ANDERSEN,アンデルセンアンデルセン,アンデルセンアンデルセン,カスタム名詞\n" +
+        "aniary,アニアリ,アニアリ,カスタム名詞\n" +
+        "ANNDEMEULEMEESTER,アンドゥムルメステール,アンドゥムルメステール,カスタム名詞\n" +
+        "ANNASUI,アナスイ,アナスイ,カスタム名詞\n" +
+        "ANREALAGE,アンリアレイジュ,アンリアレイジュ,カスタム名詞\n" +
+        "ANTEPRIMA,アンテプリマ,アンテプリマ,カスタム名詞\n" +
+        "ANTHEMA,アンセムエー,アンセムエー,カスタム名詞\n" +
+        "ANTIPAST,アンティパスト,アンティパスト,カスタム名詞\n" +
+        "ANYAHINDMARCH,アニヤハインドマーチ,アニヤハインドマーチ,カスタム名詞\n" +
+        "APOCRYPHA.,アポクリファ,アポクリファ,カスタム名詞\n" +
+        "Aquascutum,アクアスキュータム,アクアスキュータム,カスタム名詞\n" +
+        "aramis,アラミス,アラミス,カスタム名詞\n" +
+        "ARC'TERYX,アークテリクス,アークテリクス,カスタム名詞\n" +
+        "Arobe,アローブ,アローブ,カスタム名詞\n" +
+        "ASEEDONCLOUD,アシードオンクラウド,アシードオンクラウド,カスタム名詞\n" +
+        "ASICS,アシックス,アシックス,カスタム名詞\n" +
+        "atmos,アトモス,アトモス,カスタム名詞\n" +
+        "ato,アトウ,アトウ,カスタム名詞\n" +
+        "ATSUSHINAKASHIMA,ナカシマアツシ,ナカシマアツシ,カスタム名詞\n" +
+        "ATTACHMENT,アタッチメント,アタッチメント,カスタム名詞\n" +
+        "AUBERCY,オーベルシー,オーベルシー,カスタム名詞\n" +
+        "AUDEMARSPIGUE,オーデマピゲ,オーデマピゲ,カスタム名詞\n" +
+        "AULA,アウラ,アウラ,カスタム名詞\n" +
+        "AURALEE,オーラリー,オーラリー,カスタム名詞\n" +
+        "AUTHENTICSHOE&Co.,オーセンティックシューアンドコー,オーセンティックシューアンドコー,カスタム名詞\n" +
+        "AVIE,アヴィ,アヴィ,カスタム名詞\n" +
+        "AYAME,アヤメ,アヤメ,カスタム名詞\n" +
+        "ayameiweardesign,アヤメアイウェアデザイン,アヤメアイウェアデザイン,カスタム名詞\n" +
+        "ayumi.mitsukane,アユミミツカネ,アユミミツカネ,カスタム名詞\n" +
+        "AYURA,アユラ,アユラ,カスタム名詞\n" +
+        "AZULbymoussy,アズールバイマウジー,アズールバイマウジー,カスタム名詞\n" +
+        "ARMANIEXCHANGE,アーエックスアルマーニエクスチェンジ,アーエックスアルマーニエクスチェンジ,カスタム名詞\n" +
+        "B.A,ビーエー,ビーエー,カスタム名詞\n" +
+        "babaco,ババコ,ババコ,カスタム名詞\n" +
+        "Baccarat,バカラ,バカラ,カスタム名詞\n" +
+        "BALENCIAGA,バレンシアガ,バレンシアガ,カスタム名詞\n" +
+        "Bally,バリー,バリー,カスタム名詞\n" +
+        "BALMAIN,バルマン,バルマン,カスタム名詞\n" +
+        "BALMUNG,バルムンク,バルムンク,カスタム名詞\n" +
+        "Barbour,バブアー,バブアー,カスタム名詞\n" +
+        "BASICKS,ベーシックス,ベーシックス,カスタム名詞\n" +
+        "BATONER,バトナー,バトナー,カスタム名詞\n" +
+        "BAUMUNDPFERDGARTEN,バウムウントフェルトガルテン,バウムウントフェルトガルテン,カスタム名詞\n" +
+        "BEAMS,ビームス,ビームス,カスタム名詞\n" +
+        "beautifulpeople,ビューティフルピープル,ビューティフルピープル,カスタム名詞\n" +
+        "BEDj.w.FORD,ベッドジェイダブリューフォード,ベッドジェイダブリューフォード,カスタム名詞\n" +
+        "bedsidedrama,ベッドサイドドラマ,ベッドサイドドラマ,カスタム名詞\n" +
+        "BEDWIN&THEHEARTBREAKERS,ベドウィンアンドザハートブレイカーズ,ベドウィンアンドザハートブレイカーズ,カスタム名詞\n" +
+        "Belstaff,ベルスタッフ,ベルスタッフ,カスタム名詞\n" +
+        "BENTAVERNITIUNRAVELPROJECT,ベンタバーニティアンラベルプロジェクト,ベンタバーニティアンラベルプロジェクト,カスタム名詞\n" +
+        "bench,ベンチ,ベンチ,カスタム名詞\n" +
+        "BERING,ベリング,ベリング,カスタム名詞\n" +
+        "BERLUTI,ベルルッティ,ベルルッティ,カスタム名詞\n" +
+        "Bershka,ベルシュカ,ベルシュカ,カスタム名詞\n" +
+        "BESPOKETOKYO,ベスポークトーキョー,ベスポークトーキョー,カスタム名詞\n" +
+        "BIRKENSTOCK,ビルケンシュトック,ビルケンシュトック,カスタム名詞\n" +
+        "BlackWeirdos,ブラックウィアードス,ブラックウィアードス,カスタム名詞\n" +
+        "blugirl,ブルガール,ブルガール,カスタム名詞\n" +
+        "Blumarine,ブルマリン,ブルマリン,カスタム名詞\n" +
+        "blurhms,ブラームス,ブラームス,カスタム名詞\n" +
+        "BOBBIBROWN,ボビーブラウン,ボビーブラウン,カスタム名詞\n" +
+        "BODHI,ボディ,ボディ,カスタム名詞\n" +
+        "BODYSONG.,ボディソング,ボディソング,カスタム名詞\n" +
+        "Bonpoint,ボンポワン,ボンポワン,カスタム名詞\n" +
+        "Borsalino,ボルサリーノ,ボルサリーノ,カスタム名詞\n" +
+        "BOTANIST,ボタニスト,ボタニスト,カスタム名詞\n" +
+        "BOTTEGAVENETA,ボッテガヴェネタ,ボッテガヴェネタ,カスタム名詞\n" +
+        "BOUNTYHUNTER,バウンティハンター,バウンティハンター,カスタム名詞\n" +
+        "BRACTMENT,ブラクトメント,ブラクトメント,カスタム名詞\n" +
+        "Breguet,ブレゲ,ブレゲ,カスタム名詞\n" +
+        "BREITLING,ブライトリング,ブライトリング,カスタム名詞\n" +
+        "BrooksBrothers,ブルックスブラザーズ,ブルックスブラザーズ,カスタム名詞\n" +
+        "BRUNELLOCUCINELLI,ブルネロクチネリ,ブルネロクチネリ,カスタム名詞\n" +
+        "bubóBARCELONA,ブボバルセロナ,ブボバルセロナ,カスタム名詞\n" +
+        "bukht,ブクト,ブクト,カスタム名詞\n" +
+        "BURBERRY,バーバリー,バーバリー,カスタム名詞\n" +
+        "BUTTERO,ブッテロ,ブッテロ,カスタム名詞\n" +
+        "BVLGARI,ブルガリ,ブルガリ,カスタム名詞\n" +
+        "BYREDO,バイレド,バイレド,カスタム名詞\n" +
+        "C.P.COMPANY,シーピーカンパニー,シーピーカンパニー,カスタム名詞\n" +
+        "CalvinKlein,カルバンクライン,カルバンクライン,カスタム名詞\n" +
+        "CAMPER,カンペール,カンペール,カスタム名詞\n" +
+        "CANADAGOOSE,カナダグース,カナダグース,カスタム名詞\n" +
+        "CANALI,カナリ,カナリ,カスタム名詞\n" +
+        "CandyStripper,キャンディストリッパー,キャンディストリッパー,カスタム名詞\n" +
+        "CANMAKE,キャンメイク,キャンメイク,カスタム名詞\n" +
+        "CAROLCHRISTIANPOELL,キャロルクリスチャンプエル,キャロルクリスチャンプエル,カスタム名詞\n" +
+        "Cartier,カルティエ,カルティエ,カスタム名詞\n" +
+        "CARVEN,カルヴェン,カルヴェン,カスタム名詞\n" +
+        "CathKidston,キャスキッドソン,キャスキッドソン,カスタム名詞\n" +
+        "CEDRICCHARLIER,セドリックシャルリエ,セドリックシャルリエ,カスタム名詞\n" +
+        "CELINE,セリーヌ,セリーヌ,カスタム名詞\n" +
+        "Celvoke,セルヴォーク,セルヴォーク,カスタム名詞\n" +
+        "CFCL,シーエフシーエル,シーエフシーエル,カスタム名詞\n" +
+        "Champion,チャンピオン,チャンピオン,カスタム名詞\n" +
+        "CHANLUU,チャンルー,チャンルー,カスタム名詞\n" +
+        "CHANEL,シャネル,シャネル,カスタム名詞\n" +
+        "CHAUMET,ショーメ,ショーメ,カスタム名詞\n" +
+        "ChikaKisada,チカキサダ,チカキサダ,カスタム名詞\n" +
+        "Childrenofthediscordance,チルドレンオブザディスコーダンス,チルドレンオブザディスコーダンス,カスタム名詞\n" +
+        "Chloe,クロエ,クロエ,カスタム名詞\n" +
+        "Chopard,ショパール,ショパール,カスタム名詞\n" +
+        "ChristianLouboutin,クリスチャンルブタン,クリスチャンルブタン,カスタム名詞\n" +
+        "ChristopherKane,クリストファーケイン,クリストファーケイン,カスタム名詞\n" +
+        "CHROMEHEARTS,クロムハーツ,クロムハーツ,カスタム名詞\n" +
+        "ChunShuiTang,チュンシュイタン,チュンシュイタン,カスタム名詞\n" +
+        "Church's,チャーチ,チャーチ,カスタム名詞\n" +
+        "CINOH,チノ,チノ,カスタム名詞\n" +
+        "CINQUANTA,チンクアンタ,チンクアンタ,カスタム名詞\n" +
+        "CITIZEN,シチズン,シチズン,カスタム名詞\n" +
+        "CITY,シティ,シティ,カスタム名詞\n" +
+        "CIVILIZED,シヴィライズド,シヴィライズド,カスタム名詞\n" +
+        "CLANE,クラネ,クラネ,カスタム名詞\n" +
+        "CLARINS,クラランス,クラランス,カスタム名詞\n" +
+        "CLAUDIALI,クラウディアリ,クラウディアリ,カスタム名詞\n" +
+        "cledepeauBeautE,クレ・ド・ポーボーテ,クレ・ド・ポーボーテ,カスタム名詞\n" +
+        "CLINIQUE,クリニーク,クリニーク,カスタム名詞\n" +
+        "CMMNSWDN,コモンスウェデン,コモンスウェデン,カスタム名詞\n" +
+        "COACH,コーチ,コーチ,カスタム名詞\n" +
+        "Cocilaelle,コキラエル,コキラエル,カスタム名詞\n" +
+        "coeur,クール,クール,カスタム名詞\n" +
+        "COFFRETD'OR,コフレドール,コフレドール,カスタム名詞\n" +
+        "Columbia,コロンビア,コロンビア,カスタム名詞\n" +
+        "COMESANDGOES,カムズアンドゴーズ,カムズアンドゴーズ,カスタム名詞\n" +
+        "COMMEdesGARÇONS,コムデギャルソン,コムデギャルソン,カスタム名詞\n" +
+        "COMOLI,コモリ,コモリ,カスタム名詞\n" +
+        "CONVERSE,コンバース,コンバース,カスタム名詞\n" +
+        "COOHEM,クーヘム,クーヘム,カスタム名詞\n" +
+        "COS,コス,コス,カスタム名詞\n" +
+        "CoSTUMENATIONAL,コスチュームナショナル,コスチュームナショナル,カスタム名詞\n" +
+        "COVERMARK,カバーマーク,カバーマーク,カスタム名詞\n" +
+        "Credor,クレドール,クレドール,カスタム名詞\n" +
+        "CROCKETT&JONES,クロケットアンドジョーンズ,クロケットアンドジョーンズ,カスタム名詞\n" +
+        "Cruciani,クルチアーニ,クルチアーニ,カスタム名詞\n" +
+        "CULLNI,カルニ,カルニ,カスタム名詞\n" +
+        "CUNE,クネ,クネ,カスタム名詞\n" +
+        "CYCLAS,サイクラス,サイクラス,カスタム名詞\n" +
+        "D'URBAN,ディアーバン,ディアーバン,カスタム名詞\n" +
+        "DAIRIKU,ダイリク,ダイリク,カスタム名詞\n" +
+        "DAKS,ダックス,ダックス,カスタム名詞\n" +
+        "Daniel&Bob,ダニエルアンドボブ,ダニエルアンドボブ,カスタム名詞\n" +
+        "DELAMER,ドゥラメール,ドゥラメール,カスタム名詞\n" +
+        "DECORTE,デコルテ,デコルテ,カスタム名詞\n" +
+        "DEMEL,デメル,デメル,カスタム名詞\n" +
+        "DENHAM,デンハム,デンハム,カスタム名詞\n" +
+        "DEPAREILLE,デパレイエ,デパレイエ,カスタム名詞\n" +
+        "DEREKLAM,デレクラム,デレクラム,カスタム名詞\n" +
+        "DESCENTE,デサント,デサント,カスタム名詞\n" +
+        "DIANA,ディアナ,ディアナ,カスタム名詞\n" +
+        "DIANEvonFURSTENBERG,ダイアンフォンファステンバーグ,ダイアンフォンファステンバーグ,カスタム名詞\n" +
+        "Dickies,ディッキーズ,ディッキーズ,カスタム名詞\n" +
+        "DIESEL,ディーゼル,ディーゼル,カスタム名詞\n" +
+        "DIESELBLACKGOLD,ディーゼルブラックゴールド,ディーゼルブラックゴールド,カスタム名詞\n" +
+        "DIETBUTCHER,ダイエットブッチャー,ダイエットブッチャー,カスタム名詞\n" +
+        "DIGAWEL,ディガウェル,ディガウェル,カスタム名詞\n" +
+        "DIOR,ディオール,ディオール,カスタム名詞\n" +
+        "DIORHOMME,ディオールオム,ディオールオム,カスタム名詞\n" +
+        "Diptyque,ディプティック,ディプティック,カスタム名詞\n" +
+        "discordYohjiYamamoto,ディスコードヨウジヤマモト,ディスコードヨウジヤマモト,カスタム名詞\n" +
+        "DISCOVERED,ディスカバード,ディスカバード,カスタム名詞\n" +
+        "DITA,ディータ,ディータ,カスタム名詞\n" +
+        "divka,ディフカ,ディフカ,カスタム名詞\n" +
+        "DOLCE&GABBANA,ドルチェアンドガッバーナ,ドルチェアンドガッバーナ,カスタム名詞\n" +
+        "doublet,ダブレット,ダブレット,カスタム名詞\n" +
+        "Dr.Martens,ドクターマーチン,ドクターマーチン,カスタム名詞\n" +
+        "DRESSEDUNDRESSED,ドレスドアンドドレスド,ドレスドアンドドレスド,カスタム名詞\n" +
+        "DRIESVANNOTEN,ドリスヴァンノッテン,ドリスヴァンノッテン,カスタム名詞\n" +
+        "DSQUARED2,ディースクエアード2,ディースクエアード2,カスタム名詞\n" +
+        "DUELLUM,デュエルム,デュエルム,カスタム名詞\n" +
+        "dunhill,ダンヒル,ダンヒル,カスタム名詞\n" +
+        "DUVETICA,デュベティカ,デュベティカ,カスタム名詞\n" +
+        "e.m.,イーエム,イーエム,カスタム名詞\n" +
+        "EACHOTHER,イーチアザー,イーチアザー,カスタム名詞\n" +
+        "EBONY,エボニー,エボニー,カスタム名詞\n" +
+        "EDROBERTJUDSON,エドロバートジャドソン,エドロバートジャドソン,カスタム名詞\n" +
+        "EDWARDGREEN,エドワードグリーン,エドワードグリーン,カスタム名詞\n" +
+        "EDWIN,エドウィン,エドウィン,カスタム名詞\n" +
+        "EFFECTEN,エフェクテン,エフェクテン,カスタム名詞\n" +
+        "EFILEVOL,イフィールヴォル,イフィールヴォル,カスタム名詞\n" +
+        "Eggs'nThings,エッグスンシングス,エッグスンシングス,カスタム名詞\n" +
+        "elephantTRIBALfabrics,エレファントトライバルファブリックス,エレファントトライバルファブリックス,カスタム名詞\n" +
+        "ELISABETTAFRANCHI,エリザベッタフランキ,エリザベッタフランキ,カスタム名詞\n" +
+        "ElizabethandJames,エリザベスアンドジェームズ,エリザベスアンドジェームズ,カスタム名詞\n" +
+        "EMILIOPUCCI,エミリオプッチ,エミリオプッチ,カスタム名詞\n" +
+        "EmilyTemplecute,エミリーテンプルキュート,エミリーテンプルキュート,カスタム名詞\n" +
+        "EMMETI,エンメティ,エンメティ,カスタム名詞\n" +
+        "emmi,エミー,エミー,カスタム名詞\n" +
+        "EMPORIOARMANI,エンポリオアルマーニ,エンポリオアルマーニ,カスタム名詞\n" +
+        "ENFOLD,エンフォルド,エンフォルド,カスタム名詞\n" +
+        "ENGINEEREDGARMENTS,エンジニアードガーメンツ,エンジニアードガーメンツ,カスタム名詞\n" +
+        "EnharmonicTAVERN,エンハーモニックタバーン,エンハーモニックタバーン,カスタム名詞\n" +
+        "EPOCA,エポカ,エポカ,カスタム名詞\n" +
+        "EQUIPMENT,エクイップメント,エクイップメント,カスタム名詞\n" +
+        "ERDEM,エルデム,エルデム,カスタム名詞\n" +
+        "ERMANNOSCERVINO,エルマノスチェルヴィノ,エルマノスチェルヴィノ,カスタム名詞\n" +
+        "ESLOW,エスロウ,エスロウ,カスタム名詞\n" +
+        "ESPRIQUE,エスプリーク,エスプリーク,カスタム名詞\n" +
+        "est,エスト,エスト,カスタム名詞\n" +
+        "EsteeLauder,エスティローダー,エスティローダー,カスタム名詞\n" +
+        "ESTNATION,エストネーション,エストネーション,カスタム名詞\n" +
+        "ETHOSENS,エトーセンス,エトーセンス,カスタム名詞\n" +
+        "ETRO,エトロ,エトロ,カスタム名詞\n" +
+        "Ezumi,エズミ,エズミ,カスタム名詞\n" +
+        "F-LAGSTUF-F,フラグスタッフ,フラグスタッフ,カスタム名詞\n" +
+        "FABIANAFILIPPI,ファビアナフィリッピ,ファビアナフィリッピ,カスタム名詞\n" +
+        "FACETASM,ファセッタズム,ファセッタズム,カスタム名詞\n" +
+        "FACTOTUM,ファクトタム,ファクトタム,カスタム名詞\n" +
+        "FAGASSENT,ファガッサント,ファガッサント,カスタム名詞\n" +
+        "FalieroSarti,ファリエロサルティ,ファリエロサルティ,カスタム名詞\n" +
+        "FENDI,フェンディ,フェンディ,カスタム名詞\n" +
+        "Ferragamo,フェラガモ,フェラガモ,カスタム名詞\n" +
+        "Ferrari,フェラーリ,フェラーリ,カスタム名詞\n" +
+        "FILA,フィラ,フィラ,カスタム名詞\n" +
+        "FILLTHEBILL,フィルザビル,フィルザビル,カスタム名詞\n" +
+        "FilMelange,フィルメランジュ,フィルメランジュ,カスタム名詞\n" +
+        "FIVEISM×THREE,ファイブイズムスリー,ファイブイズムスリー,カスタム名詞\n" +
+        "FLICKA,フリカ,フリカ,カスタム名詞\n" +
+        "FLUMOR,フルモア,フルモア,カスタム名詞\n" +
+        "footthecoacher,フットザコーチャー,フットザコーチャー,カスタム名詞\n" +
+        "FOOTSTOCKORIGINALS,フットストックオリジナルズ,フットストックオリジナルズ,カスタム名詞\n" +
+        "forte_forte,フォルテフォルテ,フォルテフォルテ,カスタム名詞\n" +
+        "fragmentdesign,フラグメントデザイン,フラグメントデザイン,カスタム名詞\n" +
+        "Francfranc,フランフラン,フランフラン,カスタム名詞\n" +
+        "Frank&Eileen,フランクアンドアイリーン,フランクアンドアイリーン,カスタム名詞\n" +
+        "FRANKLEDER,フランクリーダー,フランクリーダー,カスタム名詞\n" +
+        "FRAPBOIS,フラップボワ,フラップボワ,カスタム名詞\n" +
+        "FRAYI.D,フレイアイディー,フレイアイディー,カスタム名詞\n" +
+        "FREDPERRY,フレッドペリー,フレッドペリー,カスタム名詞\n" +
+        "FUJI,フジ,フジ,カスタム名詞\n" +
+        "Fulton,フルトン,フルトン,カスタム名詞\n" +
+        "FUMIETANAKA,フミエタナカ,フミエタナカ,カスタム名詞\n" +
+        "FUMIKA_UCHIDA,フミカウチダ,フミカウチダ,カスタム名詞\n" +
+        "FUMITOGANRYU,フミトガンリュウ,フミトガンリュウ,カスタム名詞\n" +
+        "FURFUR,ファーファー,ファーファー,カスタム名詞\n" +
+        "FURLA,フルラ,フルラ,カスタム名詞\n" +
+        "G-SHOCK,ジーショック,ジーショック,カスタム名詞\n" +
+        "G-StarRAW,ジースターロウ,ジースターロウ,カスタム名詞\n" +
+        "G.V.G.V.,ジーブイジーヴィー,ジーブイジーヴィー,カスタム名詞\n" +
+        "GalaabenD,ガラアベンド,ガラアベンド,カスタム名詞\n" +
+        "GANZO,ガンゾ,ガンゾ,カスタム名詞\n" +
+        "GAP,ギャップ,ギャップ,カスタム名詞\n" +
+        "gelatopique,ジェラートピケ,ジェラートピケ,カスタム名詞\n" +
+        "giab’sARCHIVIO,ジャブスアーカイヴィオ,ジャブスアーカイヴィオ,カスタム名詞\n" +
+        "GIANFRANCOFERRE,ジャンフランコフェレ,ジャンフランコフェレ,カスタム名詞\n" +
+        "GINORI1735,ジノリ1735,ジノリ1735,カスタム名詞\n" +
+        "GionTsujiri,ギオンツジリ,ギオンツジリ,カスタム名詞\n" +
+        "GiorgioArmani,ジョルジオアルマーニ,ジョルジオアルマーニ,カスタム名詞\n" +
+        "GIORGIOBRATO,ジョルジオブラート,ジョルジオブラート,カスタム名詞\n" +
+        "GIUSEPPEZANOTTI,ジュゼッペザノッティ,ジュゼッペザノッティ,カスタム名詞\n" +
+        "Givenchy,ジバンシィ,ジバンシィ,カスタム名詞\n" +
+        "glamb,グラム,グラム,カスタム名詞\n" +
+        "GLOBE-TROTTER,グローブトロッター,グローブトロッター,カスタム名詞\n" +
+        "GODIVA,ゴディバ,ゴディバ,カスタム名詞\n" +
+        "GOLDENGOOSEDELUXEBRAND,ゴールデングースデラックスブランド,ゴールデングースデラックスブランド,カスタム名詞\n" +
+        "gomme,ゴム,ゴム,カスタム名詞\n" +
+        "GoshaRubchinskiy,ゴーシャラブチンスキー,ゴーシャラブチンスキー,カスタム名詞\n" +
+        "Goutal,グータル,グータル,カスタム名詞\n" +
+        "GOYARD,ゴヤール,ゴヤール,カスタム名詞\n" +
+        "GRACECONTINENTAL,グレースコンチネンタル,グレースコンチネンタル,カスタム名詞\n" +
+        "GRAFF,グラフ,グラフ,カスタム名詞\n" +
+        "Graphpaper,グラフペーパー,グラフペーパー,カスタム名詞\n" +
+        "GREGORY,グレゴリー,グレゴリー,カスタム名詞\n" +
+        "GU,ジーユー,ジーユー,カスタム名詞\n" +
+        "GUACAMOLE,グアカモーレ,グアカモーレ,カスタム名詞\n" +
+        "GUCCI,グッチ,グッチ,カスタム名詞\n" +
+        "GUERLAIN,ゲラン,ゲラン,カスタム名詞\n" +
+        "GUESS,ゲス,ゲス,カスタム名詞\n" +
+        "GUIDI,グイディ,グイディ,カスタム名詞\n" +
+        "H&M,エイチアンドエム,エイチアンドエム,カスタム名詞\n" +
+        "h.NAOTO,エイチナオト,エイチナオト,カスタム名詞\n" +
+        "ha|za|ma,ハザマ,ハザマ,カスタム名詞\n" +
+        "Haagen-Dazs,ハーゲンダッツ,ハーゲンダッツ,カスタム名詞\n" +
+        "HaaT,ハート,ハート,カスタム名詞\n" +
+        "HACCI,ハッチ,ハッチ,カスタム名詞\n" +
+        "HAIDERACKERMANN,ハイダーアッカーマン,ハイダーアッカーマン,カスタム名詞\n" +
+        "HappySocks,ハッピーソックス,ハッピーソックス,カスタム名詞\n" +
+        "HARE,ハレ,ハレ,カスタム名詞\n" +
+        "Harikae,ハリカエ,ハリカエ,カスタム名詞\n" +
+        "HARRYWINSTON,ハリーウィンストン,ハリーウィンストン,カスタム名詞\n" +
+        "HARUNOBUMURATA,ハルノブムラタ,ハルノブムラタ,カスタム名詞\n" +
+        "HATRA,ハトラ,ハトラ,カスタム名詞\n" +
+        "HAVERSACK,ハヴァサック,ハヴァサック,カスタム名詞\n" +
+        "HELENKAMINSKI,ヘレンカミンスキー,ヘレンカミンスキー,カスタム名詞\n" +
+        "HELENARUBINSTEIN,ヘレナルビンスタイン,ヘレナルビンスタイン,カスタム名詞\n" +
+        "HenderScheme,ヘンダースキーマ,ヘンダースキーマ,カスタム名詞\n" +
+        "HenriCharpentier,アンリシャルパンティエ,アンリシャルパンティエ,カスタム名詞\n" +
+        "HENRILEROUX,アンリルー,アンリルー,カスタム名詞\n" +
+        "HENRIKVIBSKOV,ヘンリックヴィブスコフ,ヘンリックヴィブスコフ,カスタム名詞\n" +
+        "HERMES,エルメス,エルメス,カスタム名詞\n" +
+        "HERNO,ヘルノ,ヘルノ,カスタム名詞\n" +
+        "HERONPRESTON,ヘロンプレストン,ヘロンプレストン,カスタム名詞\n" +
+        "HIROFU,ヒロフ,ヒロフ,カスタム名詞\n" +
+        "HIROKOBIS,ヒロコビス,ヒロコビス,カスタム名詞\n" +
+        "HIROKOKOSHINO,ヒロココシノ,ヒロココシノ,カスタム名詞\n" +
+        "HISUIHIROKOITO,ヒスイヒロコイトウ,ヒスイヒロコイトウ,カスタム名詞\n" +
+        "HOLIDAY,ホリデイ,ホリデイ,カスタム名詞\n" +
+        "HOLZWEILER,ホルツヴァイラー,ホルツヴァイラー,カスタム名詞\n" +
+        "HTC,エイチティーシー,エイチティーシー,カスタム名詞\n" +
+        "HUBLOT,ウブロ,ウブロ,カスタム名詞\n" +
+        "HUF,ハフ,ハフ,カスタム名詞\n" +
+        "HUGOBOSS,ヒューゴボス,ヒューゴボス,カスタム名詞\n" +
+        "HUNTER,ハンター,ハンター,カスタム名詞\n" +
+        "HUNTINGWORLD,ハンティングワールド,ハンティングワールド,カスタム名詞\n" +
+        "HYKE,ハイク,ハイク,カスタム名詞\n" +
+        "HYSTERICGLAMOUR,ヒステリックグラマー,ヒステリックグラマー,カスタム名詞\n" +
+        "Ice-Watch,アイスウォッチ,アイスウォッチ,カスタム名詞\n" +
+        "IDDAILYWEAR,IDデイリーウェア,IDデイリーウェア,カスタム名詞\n" +
+        "IKEA,イケア,イケア,カスタム名詞\n" +
+        "IKUMI,イクミ,イクミ,カスタム名詞\n" +
+        "ILBISONTE,イルビゾンテ,イルビゾンテ,カスタム名詞\n" +
+        "IN-PROCESSTokyo,インプロセストウキョウ,インプロセストウキョウ,カスタム名詞\n" +
+        "INCOTEX,インコテックス,インコテックス,カスタム名詞\n" +
+        "INDIVIDUALIZEDSHIRTS,インディビジュアライズドシャツ,インディビジュアライズドシャツ,カスタム名詞\n" +
+        "INNAT,イネート,イネート,カスタム名詞\n" +
+        "INVERALLAN,インバララン,インバララン,カスタム名詞\n" +
+        "IPSA,イプサ,イプサ,カスタム名詞\n" +
+        "Iroquois,イロコイ,イロコイ,カスタム名詞\n" +
+        "ISABELMARANT,イザベルマラン,イザベルマラン,カスタム名詞\n" +
+        "ISAMUKATAYAMABACKLASH,イサムカタヤマバックラッシュ,イサムカタヤマバックラッシュ,カスタム名詞\n" +
+        "ISSEYMIYAKE,イッセイミヤケ,イッセイミヤケ,カスタム名詞\n" +
+        "IWC,アイダブリューシー,アイダブリューシー,カスタム名詞\n" +
+        "I’mhere:,アイムヒア,アイムヒア,カスタム名詞\n" +
+        "J&MDAVIDSON,ジェイアンドエムデイビッドソン,ジェイアンドエムデイビッドソン,カスタム名詞\n" +
+        "J.M.WESTON,ジェイエムウェストン,ジェイエムウェストン,カスタム名詞\n" +
+        "JACOBCOHEN,ジェイコブコーエン,ジェイコブコーエン,カスタム名詞\n" +
+        "JAMHOMEMADE,ジャムホームメイド,ジャムホームメイド,カスタム名詞\n" +
+        "JAMESPERSE,ジェームスパース,ジェームスパース,カスタム名詞\n" +
+        "JaneMarple,ジェーンマープル,ジェーンマープル,カスタム名詞\n" +
+        "JANESMITH,ジェーンスミス,ジェーンスミス,カスタム名詞\n" +
+        "JASONWU,ジェイソンウー,ジェイソンウー,カスタム名詞\n" +
+        "JEANPAULGAULTIER,ジャンポールゴルチエ,ジャンポールゴルチエ,カスタム名詞\n" +
+        "JEAN-PAULHEVIN,ジャンポールエヴァン,ジャンポールエヴァン,カスタム名詞\n" +
+        "JeffreyCampbell,ジェフリーキャンベル,ジェフリーキャンベル,カスタム名詞\n" +
+        "JennyFax,ジェニーファックス,ジェニーファックス,カスタム名詞\n" +
+        "Jens,イェンス,イェンス,カスタム名詞\n" +
+        "JieDa,ジエダ,ジエダ,カスタム名詞\n" +
+        "JILSANDER,ジルサンダー,ジルサンダー,カスタム名詞\n" +
+        "JILLSTUART,ジルスチュアート,ジルスチュアート,カスタム名詞\n" +
+        "JIMMYCHOO,ジミーチュウ,ジミーチュウ,カスタム名詞\n" +
+        "JINS,ジンズ,ジンズ,カスタム名詞\n" +
+        "JOMALONELONDON,ジョーマローンロンドン,ジョーマローンロンドン,カスタム名詞\n" +
+        "Jocomomola,ジョコモモラ,ジョコモモラ,カスタム名詞\n" +
+        "JohnGalliano,ジョンガリアーノ,ジョンガリアーノ,カスタム名詞\n" +
+        "JOHNLAWRENCESULLIVAN,ジョンローレンスサリバン,ジョンローレンスサリバン,カスタム名詞\n" +
+        "JOHNLOBB,ジョンロブ,ジョンロブ,カスタム名詞\n" +
+        "JOHNMASONSMITH,ジョンメイスンスミス,ジョンメイスンスミス,カスタム名詞\n" +
+        "johnmastersorganics,ジョンマスターオーガニクス,ジョンマスターオーガニクス,カスタム名詞\n" +
+        "JOHNSMEDLEY,ジョンスメドレー,ジョンスメドレー,カスタム名詞\n" +
+        "JOHNBULL,ジョンブル,ジョンブル,カスタム名詞\n" +
+        "JohnstonsofElgin,ジョンストンズオブエルギン,ジョンストンズオブエルギン,カスタム名詞\n" +
+        "JOSEPHHOMME,ジョセフオム,ジョセフオム,カスタム名詞\n" +
+        "JOTAROSAITO,ジョータロウサイトウ,ジョータロウサイトウ,カスタム名詞\n" +
+        "JOURNALSTANDARD,ジャーナルスタンダード,ジャーナルスタンダード,カスタム名詞\n" +
+        "JUHA,ジュハ,ジュハ,カスタム名詞\n" +
+        "JulienDavid,ジュリアンデビッド,ジュリアンデビッド,カスタム名詞\n" +
+        "JULIUS,ジュリウス,ジュリウス,カスタム名詞\n" +
+        "junhashimoto,ジュンハシモト,ジュンハシモト,カスタム名詞\n" +
+        "JUNYAWATANABE,ジュンヤワタナベ,ジュンヤワタナベ,カスタム名詞\n" +
+        "JustCavalli,ジャストカヴァリ,ジャストカヴァリ,カスタム名詞\n" +
+        "JUUN.J,ジュンジェイ,ジュンジェイ,カスタム名詞\n" +
+        "JUVENILEHALLROLLCALL,ジュブナイルホールロールコール,ジュブナイルホールロールコール,カスタム名詞\n" +
+        "JWAnderson,ジェイダブリューアンダーソン,ジェイダブリューアンダーソン,カスタム名詞\n" +
+        "k3&co.,ケースリーコー,ケースリーコー,カスタム名詞\n" +
+        "KAMILi,カミリ,カミリ,カスタム名詞\n" +
+        "KAMISHIMACHINAMI,カミシマチナミ,カミシマチナミ,カスタム名詞\n" +
+        "KANAKOSAKAI,カナコサカイ,カナコサカイ,カスタム名詞\n" +
+        "KANEBO,カネボウ,カネボウ,カスタム名詞\n" +
+        "Kappa,カッパ,カッパ,カスタム名詞\n" +
+        "KARENWALKER,カレンウォーカー,カレンウォーカー,カスタム名詞\n" +
+        "karrimor,カリマー,カリマー,カスタム名詞\n" +
+        "KATE,ケイト,ケイト,カスタム名詞\n" +
+        "katespadenewyork,ケイトスペードニューヨーク,ケイトスペードニューヨーク,カスタム名詞\n" +
+        "KazukiNagayama,カズキナガヤマ,カズキナガヤマ,カスタム名詞\n" +
+        "KAZUYUKIKUMAGAI,カズユキクマガイ,カズユキクマガイ,カスタム名詞\n" +
+        "KEISUKEYOSHIDA,ケイスケヨシダ,ケイスケヨシダ,カスタム名詞\n" +
+        "KEITAMARUYAMA,ケイタマルヤマ,ケイタマルヤマ,カスタム名詞\n" +
+        "KENZO,ケンゾー,ケンゾー,カスタム名詞\n" +
+        "KICSDOCUMENT.,キックスドキュメント,キックスドキュメント,カスタム名詞\n" +
+        "KIDILL,キディル,キディル,カスタム名詞\n" +
+        "KIEHL'SSINCE1851,キールズシンス1851,キールズシンス1851,カスタム名詞\n" +
+        "KIIT,キイト,キイト,カスタム名詞\n" +
+        "KIJIMATAKAYUKI,キジマタカユキ,キジマタカユキ,カスタム名詞\n" +
+        "KINO,キノ,キノ,カスタム名詞\n" +
+        "Kirov,キロフ,キロフ,カスタム名詞\n" +
+        "KITH,キス,キス,カスタム名詞\n" +
+        "Kiwanda,キワンダ,キワンダ,カスタム名詞\n" +
+        "KOCHE,コシュ,コシュ,カスタム名詞\n" +
+        "kolor,カラー,カラー,カスタム名詞\n" +
+        "KOTONA,コトナ,コトナ,カスタム名詞\n" +
+        "KRIZIA,クリツィア,クリツィア,カスタム名詞\n" +
+        "kujaku,クジャク,クジャク,カスタム名詞\n" +
+        "KURO,クロ,クロ,カスタム名詞\n" +
+        "K三,ケイサン,ケイサン,カスタム名詞\n" +
+        "L'OCCITANE,ロクシタン,ロクシタン,カスタム名詞\n" +
+        "LAMAISONDUCHOCOLAT,ラメゾンデュショコラ,ラメゾンデュショコラ,カスタム名詞\n" +
+        "LACOSTE,ラコステ,ラコステ,カスタム名詞\n" +
+        "LADMUSICIAN,ラッドミュージシャン,ラッドミュージシャン,カスタム名詞\n" +
+        "Laduree,ラデュレ,ラデュレ,カスタム名詞\n" +
+        "Laline,ラリン,ラリン,カスタム名詞\n" +
+        "LANCOME,ランコム,ランコム,カスタム名詞\n" +
+        "LANVIN,ランバン,ランバン,カスタム名詞\n" +
+        "LANVINCOLLECTION,ランバンコレクション,ランバンコレクション,カスタム名詞\n" +
+        "LANVINenBleu,ランバンオンブルー,ランバンオンブルー,カスタム名詞\n" +
+        "LAPS,ラップス,ラップス,カスタム名詞\n" +
+        "LARDINI,ラルディーニ,ラルディーニ,カスタム名詞\n" +
+        "lauramercier,ローラメルシエ,ローラメルシエ,カスタム名詞\n" +
+        "Lautashi,ラウタシ,ラウタシ,カスタム名詞\n" +
+        "LeCreuset,ル・クルーゼ,ル・クルーゼ,カスタム名詞\n" +
+        "Lee,リー,リー,カスタム名詞\n" +
+        "LEH,レー,レー,カスタム名詞\n" +
+        "Leilian,レイリアン,レイリアン,カスタム名詞\n" +
+        "LEMAIRE,ルメール,ルメール,カスタム名詞\n" +
+        "LEONARD,レオナール,レオナール,カスタム名詞\n" +
+        "LeSportsac,レスポートサック,レスポートサック,カスタム名詞\n" +
+        "leurlogette,ルールロジェット,ルールロジェット,カスタム名詞\n" +
+        "LEVERCOUTURE,リーバーコウチャ,リーバーコウチャ,カスタム名詞\n" +
+        "Levi's,リーバイス,リーバイス,カスタム名詞\n" +
+        "Levi'sVintageClothing,リーバイスヴィンテージクロージング,リーバイスヴィンテージクロージング,カスタム名詞\n" +
+        "LIAMHODGES,リアムホッジス,リアムホッジス,カスタム名詞\n" +
+        "Liberty,リバティ,リバティ,カスタム名詞\n" +
+        "LIBERUM,リベルム,リベルム,カスタム名詞\n" +
+        "LichtBestreben,リヒトベシュトレーベン,リヒトベシュトレーベン,カスタム名詞\n" +
+        "LIMIfeu,リミフゥ,リミフゥ,カスタム名詞\n" +
+        "LISSAGE,リサージュ,リサージュ,カスタム名詞\n" +
+        "LITTLEBIG,リトルビッグ,リトルビッグ,カスタム名詞\n" +
+        "LOEWE,ロエベ,ロエベ,カスタム名詞\n" +
+        "LOKITHO,ロキト,ロキト,カスタム名詞\n" +
+        "LONGCHAMP,ロンシャン,ロンシャン,カスタム名詞\n" +
+        "LONGINES,ロンジン,ロンジン,カスタム名詞\n" +
+        "LoroPiana,ロロピアーナ,ロロピアーナ,カスタム名詞\n" +
+        "lotholon,ロットホロン,ロットホロン,カスタム名詞\n" +
+        "LOUISVUITTON,ルイヴィトン,ルイヴィトン,カスタム名詞\n" +
+        "LOUNGELIZARD,ラウンジリザード,ラウンジリザード,カスタム名詞\n" +
+        "lucienpellat-finet,リュシアンペラフィネ,リュシアンペラフィネ,カスタム名詞\n" +
+        "LUIGIBORRELLI,ルイジボレリ,ルイジボレリ,カスタム名詞\n" +
+        "LUNASOL,ルナソル,ルナソル,カスタム名詞\n" +
+        "LUSH,ラッシュ,ラッシュ,カスタム名詞\n" +
+        "N.HOOLYWOOD,エヌハリウッド,エヌハリウッド,カスタム名詞\n" +
+        "N21,エヌニジュウイチ,エヌニジュウイチ,カスタム名詞\n" +
+        "NAIFE,ナイフ,ナイフ,カスタム名詞\n" +
+        "NAILSINC,ネイルズインク,ネイルズインク,カスタム名詞\n" +
+        "NAISSANCE,ネサンス,ネサンス,カスタム名詞\n" +
+        "Name.,ネーム,ネーム,カスタム名詞\n" +
+        "nanamica,ナナミカ,ナナミカ,カスタム名詞\n" +
+        "NANGA,ナンガ,ナンガ,カスタム名詞\n" +
+        "NARS,ナーズ,ナーズ,カスタム名詞\n" +
+        "Ne-net,ネネット,ネネット,カスタム名詞\n" +
+        "near.nippon,ニアニッポン,ニアニッポン,カスタム名詞\n" +
+        "NEEDLES,ニードルズ,ニードルズ,カスタム名詞\n" +
+        "NEHERA,ネヘラ,ネヘラ,カスタム名詞\n" +
+        "NEIGHBORHOOD,ネイバーフッド,ネイバーフッド,カスタム名詞\n" +
+        "NeilBarrett,ニールバレット,ニールバレット,カスタム名詞\n" +
+        "NEONSIGN,ネオンサイン,ネオンサイン,カスタム名詞\n" +
+        "nEsessaire,ネセセール,ネセセール,カスタム名詞\n" +
+        "NewBalance,ニューバランス,ニューバランス,カスタム名詞\n" +
+        "NEWERA,ニューエラ,ニューエラ,カスタム名詞\n" +
+        "NICENESS,ナイスネス,ナイスネス,カスタム名詞\n" +
+        "NicolaiBergmannFlowers&Design,ニコライバーグマンフラワーズアンドデザイン,ニコライバーグマンフラワーズアンドデザイン,カスタム名詞\n" +
+        "NigelCabourn,ナイジェルカボーン,ナイジェルカボーン,カスタム名詞\n" +
+        "NIKE,ナイキ,ナイキ,カスタム名詞\n" +
+        "nikoand...,ニコアンド,ニコアンド,カスタム名詞\n" +
+        "NILøS,ニルス,ニルス,カスタム名詞\n" +
+        "NINARICCI,ニナリッチ,ニナリッチ,カスタム名詞\n" +
+        "NIWAKA,ニワカ,ニワカ,カスタム名詞\n" +
+        "NIXON,ニクソン,ニクソン,カスタム名詞\n" +
+        "noirkeininomiya,ノワールケイニノミヤ,ノワールケイニノミヤ,カスタム名詞\n" +
+        "NONTOKYO,ノン,ノン,カスタム名詞\n" +
+        "nonnative,ノンネイティブ,ノンネイティブ,カスタム名詞\n" +
+        "NorwegianRain,ノルウェージャンレイン,ノルウェージャンレイン,カスタム名詞\n" +
+        "nude:masahikomaruyama,ヌードマサヒコマルヤマ,ヌードマサヒコマルヤマ,カスタム名詞\n" +
+        "nuterm,ニュターム,ニュターム,カスタム名詞\n" +
+        "NYA-,ニャー,ニャー,カスタム名詞\n" +
+        "Oproject,オープロジェクト,オープロジェクト,カスタム名詞\n" +
+        "OAMC,オーエーエムシー,オーエーエムシー,カスタム名詞\n" +
+        "OFF-WHITE,オフホワイト,オフホワイト,カスタム名詞\n" +
+        "OFFICINEUNIVERSELLEBULY,オフィシーヌユニヴェルセルブリー,オフィシーヌユニヴェルセルブリー,カスタム名詞\n" +
+        "ohta,オオタ,オオタ,カスタム名詞\n" +
+        "OKIRAKU,オキラク,オキラク,カスタム名詞\n" +
+        "OLIVERGOLDSMITH,オリバーゴールドスミス,オリバーゴールドスミス,カスタム名詞\n" +
+        "OLIVERPEOPLES,オリバーピープルズ,オリバーピープルズ,カスタム名詞\n" +
+        "OLIVIABURTON,オリビアバートン,オリビアバートン,カスタム名詞\n" +
+        "OMEGA,オメガ,オメガ,カスタム名詞\n" +
+        "OnitsukaTiger,オニツカタイガー,オニツカタイガー,カスタム名詞\n" +
+        "OPENINGCEREMONY,オープニングセレモニー,オープニングセレモニー,カスタム名詞\n" +
+        "OPERA,オペラ,オペラ,カスタム名詞\n" +
+        "OscardelaRenta,オスカーデラレンタ,オスカーデラレンタ,カスタム名詞\n" +
+        "OVERCOAT,オーバーコート,オーバーコート,カスタム名詞\n" +
+        "PABLO,パブロ,パブロ,カスタム名詞\n" +
+        "pacorabanne,パコラバンヌ,パコラバンヌ,カスタム名詞\n" +
+        "Padmore&Barnes,パドモアアンドバーンズ,パドモアアンドバーンズ,カスタム名詞\n" +
+        "PALACESKATEBOARDS,パレススケートボード,パレススケートボード,カスタム名詞\n" +
+        "PalmAngels,パームエンジェルス,パームエンジェルス,カスタム名詞\n" +
+        "PAMEOPOSE,パメオポーズ,パメオポーズ,カスタム名詞\n" +
+        "PAÑPURI,パンプリ,パンプリ,カスタム名詞\n" +
+        "Paratiisi,パラティシ,パラティシ,カスタム名詞\n" +
+        "pasdecalais,パドカレ,パドカレ,カスタム名詞\n" +
+        "PASSTHEBATON,パスザバトン,パスザバトン,カスタム名詞\n" +
+        "Patagonia,パタゴニア,パタゴニア,カスタム名詞\n" +
+        "PatekPhilippe,パテックフィリップ,パテックフィリップ,カスタム名詞\n" +
+        "pAtisserieSadaharuAOKIparis,パティスリーサダハルアオキパリ,パティスリーサダハルアオキパリ,カスタム名詞\n" +
+        "Patou,パトゥ,パトゥ,カスタム名詞\n" +
+        "PAUL&JOE,ポールアンドジョー,ポールアンドジョー,カスタム名詞\n" +
+        "PaulSmith,ポールスミス,ポールスミス,カスタム名詞\n" +
+        "PaulStuart,ポールスチュアート,ポールスチュアート,カスタム名詞\n" +
+        "PAULEKA,ポールカ,ポールカ,カスタム名詞\n" +
+        "PEACHJOHN,ピーチジョン,ピーチジョン,カスタム名詞\n" +
+        "PELLICO,ペリーコ,ペリーコ,カスタム名詞\n" +
+        "PENHALIGON'S,ペンハリガンズ,ペンハリガンズ,カスタム名詞\n" +
+        "PETITBATEAU,プチバトー,プチバトー,カスタム名詞\n" +
+        "PHEENY,フィーニー,フィーニー,カスタム名詞\n" +
+        "PHILIPPEMODEL,フィリップモデル,フィリップモデル,カスタム名詞\n" +
+        "PHILOSOPHY,フィロソフィ,フィロソフィ,カスタム名詞\n" +
+        "PHINGERIN,フィンガリン,フィンガリン,カスタム名詞\n" +
+        "PhoebePhilo,フィービーフィロ,フィービーフィロ,カスタム名詞\n" +
+        "PierreCardin,ピエールカルダン,ピエールカルダン,カスタム名詞\n" +
+        "PIERREHARDY,ピエールアルディ,ピエールアルディ,カスタム名詞\n" +
+        "PIERREHERMEPARIS,ピエールエルメパリ,ピエールエルメパリ,カスタム名詞\n" +
+        "PierreMarcolini,ピエールマルコリーニ,ピエールマルコリーニ,カスタム名詞\n" +
+        "PIGALLE,ピガール,ピガール,カスタム名詞\n" +
+        "pillings,ピリングス,ピリングス,カスタム名詞\n" +
+        "POLA,ポーラ,ポーラ,カスタム名詞\n" +
+        "PORTER,ポーター,ポーター,カスタム名詞\n" +
+        "PORTS1961,ポーツ1961,ポーツ1961,カスタム名詞\n" +
+        "PRADA,プラダ,プラダ,カスタム名詞\n" +
+        "PRDXPARADOXTOKYO,プロデューサーパラドックストーキョー,プロデューサーパラドックストーキョー,カスタム名詞\n" +
+        "Primavista,プリマヴィスタ,プリマヴィスタ,カスタム名詞\n" +
+        "PringleofScotland,プリングルオブスコットランド,プリングルオブスコットランド,カスタム名詞\n" +
+        "ProenzaSchouler,プロエンザスクーラー,プロエンザスクーラー,カスタム名詞\n" +
+        "PUMA,プーマ,プーマ,カスタム名詞\n" +
+        "Q-pot.,キューポット,キューポット,カスタム名詞\n" +
+        "Qu'ilfaitbon,キュフェボン,キュフェボン,カスタム名詞\n" +
+        "rag&bone,ラグアンドボーン,ラグアンドボーン,カスタム名詞\n" +
+        "RAINMAKER,レインメーカー,レインメーカー,カスタム名詞\n" +
+        "RalphLauren,ラルフローレン,ラルフローレン,カスタム名詞\n" +
+        "Rawtus,ロータス,ロータス,カスタム名詞\n" +
+        "RayBEAMS,レイビームス,レイビームス,カスタム名詞\n" +
+        "Ray-Ban,レイバン,レイバン,カスタム名詞\n" +
+        "RBTXCO/RETAK_,アールビーティーエックスシーオー/リタック,アールビーティーエックスシーオー/リタック,カスタム名詞\n" +
+        "READYMADE,レディメイド,レディメイド,カスタム名詞\n" +
+        "Reebok,リーボック,リーボック,カスタム名詞\n" +
+        "REGAL,リーガル,リーガル,カスタム名詞\n" +
+        "REKISAMI,レキサミ,レキサミ,カスタム名詞\n" +
+        "Repetto,レペット,レペット,カスタム名詞\n" +
+        "REVLON,レブロン,レブロン,カスタム名詞\n" +
+        "RickOwens,リックオウエンス,リックオウエンス,カスタム名詞\n" +
+        "RIMMEL,リンメル,リンメル,カスタム名詞\n" +
+        "RIMOWA,リモワ,リモワ,カスタム名詞\n" +
+        "RIPVANWINKLE,リップヴァンウィンクル,リップヴァンウィンクル,カスタム名詞\n" +
+        "RMK,アールエムケー,アールエムケー,カスタム名詞\n" +
+        "rmsbeauty,アールエムエスビューティー,アールエムエスビューティー,カスタム名詞\n" +
+        "roarguns,ロアーガンズ,ロアーガンズ,カスタム名詞\n" +
+        "robertocavalli,ロベルトカヴァリ,ロベルトカヴァリ,カスタム名詞\n" +
+        "robertocollina,ロベルトコリーナ,ロベルトコリーナ,カスタム名詞\n" +
+        "robes&confections,ローブアンドコンフェクションズ,ローブアンドコンフェクションズ,カスタム名詞\n" +
+        "ROCHAS,ロシャス,ロシャス,カスタム名詞\n" +
+        "Roen,ロエン,ロエン,カスタム名詞\n" +
+        "RogerVivier,ロジェヴィヴィエ,ロジェヴィヴィエ,カスタム名詞\n" +
+        "ROGER&GALLET,ロジェアンドギャレット,ロジェアンドギャレット,カスタム名詞\n" +
+        "ROLEX,ロレックス,ロレックス,カスタム名詞\n" +
+        "RonHerman,ロンハーマン,ロンハーマン,カスタム名詞\n" +
+        "Roomno.8,ルームナンバーエイト,ルームナンバーエイト,カスタム名詞\n" +
+        "RoyalCopenhagen,ロイヤルコペンハーゲン,ロイヤルコペンハーゲン,カスタム名詞\n" +
+        "RPKO,アールピーケーオー,アールピーケーオー,カスタム名詞\n" +
+        "RUMBLERED,ランブルレッド,ランブルレッド,カスタム名詞\n" +
+        "S.T.Dupont,エスティデュポン,エスティデュポン,カスタム名詞\n" +
+        "SABON,サボン,サボン,カスタム名詞\n" +
+        "sacai,サカイ,サカイ,カスタム名詞\n" +
+        "SAGEDECRET,サージュドクレール,サージュドクレール,カスタム名詞\n" +
+        "sakayori.,サカヨリ,サカヨリ,カスタム名詞\n" +
+        "SalvatorePiccolo,サルヴァトーレピッコロ,サルヴァトーレピッコロ,カスタム名詞\n" +
+        "salvy;,サルビー,サルビー,カスタム名詞\n" +
+        "Samsonite,サムソナイト,サムソナイト,カスタム名詞\n" +
+        "Samuji,サムジ,サムジ,カスタム名詞\n" +
+        "SANTONI,サントーニ,サントーニ,カスタム名詞\n" +
+        "SANUA,サヌア,サヌア,カスタム名詞\n" +
+        "Sasquatchfabrix.,サスクォッチファブリックス,サスクォッチファブリックス,カスタム名詞\n" +
+        "SATOKOOZAWA,サトコオザワ,サトコオザワ,カスタム名詞\n" +
+        "SATORUSASAKI,サトルササキ,サトルササキ,カスタム名詞\n" +
+        "SaturdaysNYC,サタデーズニューヨークシティ,サタデーズニューヨークシティ,カスタム名詞\n" +
+        "SAYAKADAVIS,サヤカデイビス,サヤカデイビス,カスタム名詞\n" +
+        "SCAPA,スカパ,スカパ,カスタム名詞\n" +
+        "SCOTCHGRAIN,スコッチグレイン,スコッチグレイン,カスタム名詞\n" +
+        "Scye,サイ,サイ,カスタム名詞\n" +
+        "SeeByChloE,シーバイクロエ,シーバイクロエ,カスタム名詞\n" +
+        "SEIKO,セイコー,セイコー,カスタム名詞\n" +
+        "semoh,セモー,セモー,カスタム名詞\n" +
+        "SERGEdebleu,セルジュドブルー,セルジュドブルー,カスタム名詞\n" +
+        "SergioRossi,セルジオロッシ,セルジオロッシ,カスタム名詞\n" +
+        "SEVENBYSEVEN,セブンバイセブン,セブンバイセブン,カスタム名詞\n" +
+        "SHAREEF,シャリーフ,シャリーフ,カスタム名詞\n" +
+        "SHETokyo,シェトウキョウ,シェトウキョウ,カスタム名詞\n" +
+        "SHIATZYCHEN,シャッツィチェン,シャッツィチェン,カスタム名詞\n" +
+        "SHIHARA,シハラ,シハラ,カスタム名詞\n" +
+        "ShirleyTemple,シャーリーテンプル,シャーリーテンプル,カスタム名詞\n" +
+        "SHIRO,シロ,シロ,カスタム名詞\n" +
+        "SHIROMA,シロマ,シロマ,カスタム名詞\n" +
+        "SHISEIDO,資生堂,資生堂,カスタム名詞\n" +
+        "shuuemura,シュウウエムラ,シュウウエムラ,カスタム名詞\n" +
+        "SHURON,シュロン,シュロン,カスタム名詞\n" +
+        "SISE,シセ,シセ,カスタム名詞\n" +
+        "SK-II,エスケーツー,エスケーツー,カスタム名詞\n" +
+        "sneeuw,スネウ,スネウ,カスタム名詞\n" +
+        "SNIDEL,スナイデル,スナイデル,カスタム名詞\n" +
+        "SnowPeak,スノーピーク,スノーピーク,カスタム名詞\n" +
+        "soe,ソエ,ソエ,カスタム名詞\n" +
+        "SOFTHYPHEN,ソフトハイフン,ソフトハイフン,カスタム名詞\n" +
+        "SOMARTA,ソマルタ,ソマルタ,カスタム名詞\n" +
+        "SOPHNET.,ソフネット,ソフネット,カスタム名詞\n" +
+        "SOUTH2WEST8,サウスツーウエストエイト,サウスツーウエストエイト,カスタム名詞\n" +
+        "SPECTUSSHOECO.,スペクタスシューコ,スペクタスシューコ,カスタム名詞\n" +
+        "SPORTMAX,スポーツマックス,スポーツマックス,カスタム名詞\n" +
+        "Sretsis,スレシス,スレシス,カスタム名詞\n" +
+        "STARJEWELRY,スタージュエリー,スタージュエリー,カスタム名詞\n" +
+        "Starbucks,スターバックス,スターバックス,カスタム名詞\n" +
+        "StellaJean,ステラジーン,ステラジーン,カスタム名詞\n" +
+        "STELLAMcCARTNEY,ステラマッカートニー,ステラマッカートニー,カスタム名詞\n" +
+        "STEPHANSCHNEIDER,ステファンシュナイダー,ステファンシュナイダー,カスタム名詞\n" +
+        "STOF,ストフ,ストフ,カスタム名詞\n" +
+        "STONEISLAND,ストーンアイランド,ストーンアイランド,カスタム名詞\n" +
+        "STUDIONICHOLSON,スタジオニコルソン,スタジオニコルソン,カスタム名詞\n" +
+        "STUDIOSEVEN,ステュディオセブン,ステュディオセブン,カスタム名詞\n" +
+        "STUDIOUS,ステュディオス,ステュディオス,カスタム名詞\n" +
+        "STUSSY,ステューシー,ステューシー,カスタム名詞\n" +
+        "SUGARHILL,シュガーヒル,シュガーヒル,カスタム名詞\n" +
+        "SUICOKE,スイコック,スイコック,カスタム名詞\n" +
+        "sulvam,スルヴァム,スルヴァム,カスタム名詞\n" +
+        "SUNAOKUWAHARA,スナオクワハラ,スナオクワハラ,カスタム名詞\n" +
+        "SUPP.,サップ,サップ,カスタム名詞\n" +
+        "supportsurface,サポートサーフェス,サポートサーフェス,カスタム名詞\n" +
+        "Supreme,シュプリーム,シュプリーム,カスタム名詞\n" +
+        "SUQQU,スック,スック,カスタム名詞\n" +
+        "suzukitakayuki,スズキタカユキ,スズキタカユキ,カスタム名詞\n" +
+        "SWAROVSKI,スワロフスキー,スワロフスキー,カスタム名詞\n" +
+        "Swatch,スウォッチ,スウォッチ,カスタム名詞\n" +
+        "Sybilla,シビラ,シビラ,カスタム名詞\n" +
+        "TAAKK,ターク,ターク,カスタム名詞\n" +
+        "TADASHISHOJI,タダシショージ,タダシショージ,カスタム名詞\n" +
+        "TAEASHIDA,タエアシダ,タエアシダ,カスタム名詞\n" +
+        "TAGHeuer,タグホイヤー,タグホイヤー,カスタム名詞\n" +
+        "TAGLIATORE,タリアトーレ,タリアトーレ,カスタム名詞\n" +
+        "TAION,タイオン,タイオン,カスタム名詞\n" +
+        "TAKAHIROMIYASHITATheSoloist.,タカヒロミヤシタザソロイスト,タカヒロミヤシタザソロイスト,カスタム名詞\n" +
+        "talkative,トーカティブ,トーカティブ,カスタム名詞\n" +
+        "TAN,タン,タン,カスタム名詞\n" +
+        "TANAKA,タナカ,タナカ,カスタム名詞\n" +
+        "TAO,タオ,タオ,カスタム名詞\n" +
+        "TASAKI,タサキ,タサキ,カスタム名詞\n" +
+        "TATRAS,タトラス,タトラス,カスタム名詞\n" +
+        "TEÄTORA,テアトラ,テアトラ,カスタム名詞\n" +
+        "Tenc,テンシー,テンシー,カスタム名詞\n" +
+        "Tendence,テンデンス,テンデンス,カスタム名詞\n" +
+        "Teva,テバ,テバ,カスタム名詞\n" +
+        "THEBODYSHOP,ザボディショップ,ザボディショップ,カスタム名詞\n" +
+        "THEKEIJI,ザケイジ,ザケイジ,カスタム名詞\n" +
+        "TheLetters,ザレターズ,ザレターズ,カスタム名詞\n" +
+        "THENERDYS,ザナーディーズ,ザナーディーズ,カスタム名詞\n" +
+        "THENORTHFACE,ザノースフェイス,ザノースフェイス,カスタム名詞\n" +
+        "THEONITSUKA,ザオニツカ,ザオニツカ,カスタム名詞\n" +
+        "THERERACS,ザレラックス,ザレラックス,カスタム名詞\n" +
+        "THEROW,ザロウ,ザロウ,カスタム名詞\n" +
+        "TheViridi-anne,ザヴィリディアン,ザヴィリディアン,カスタム名詞\n" +
+        "THEATREPRODUCTS,シアタープロダクツ,シアタープロダクツ,カスタム名詞\n" +
+        "Theory,セオリー,セオリー,カスタム名詞\n" +
+        "THOMBROWNE,トムブラウン,トムブラウン,カスタム名詞\n" +
+        "THRAW,スロウ,スロウ,カスタム名詞\n" +
+        "THREE,スリー,スリー,カスタム名詞\n" +
+        "threedots,スリードッツ,スリードッツ,カスタム名詞\n" +
+        "tibi,ティビ,ティビ,カスタム名詞\n" +
+        "Tiffany&Co.,ティファニー,ティファニー,カスタム名詞\n" +
+        "tiittokyo,ティートトウキョウ,ティートトウキョウ,カスタム名詞\n" +
+        "Timberland,ティンバーランド,ティンバーランド,カスタム名詞\n" +
+        "TINKERBELL,ティンカーベル,ティンカーベル,カスタム名詞\n" +
+        "TOCCA,トッカ,トッカ,カスタム名詞\n" +
+        "TOD'S,トッズ,トッズ,カスタム名詞\n" +
+        "TOGA,トーガ,トーガ,カスタム名詞\n" +
+        "TOMFORD,トムフォード,トムフォード,カスタム名詞\n" +
+        "TOMMYHILFIGER,トミーヒルフィガー,トミーヒルフィガー,カスタム名詞\n" +
+        "TOMOKOIZUMI,トモコイズミ,トモコイズミ,カスタム名詞\n" +
+        "TOMORROWLAND,トゥモローランド,トゥモローランド,カスタム名詞\n" +
+        "TOMWOOD,トムウッド,トムウッド,カスタム名詞\n" +
+        "TOPMAN,トップマン,トップマン,カスタム名詞\n" +
+        "TOPSHOP,トップショップ,トップショップ,カスタム名詞\n" +
+        "TOPSHOPUNIQUE,トップショップユニーク,トップショップユニーク,カスタム名詞\n" +
+        "TORAYA,トラヤ,トラヤ,カスタム名詞\n" +
+        "TORYBURCH,トリーバーチ,トリーバーチ,カスタム名詞\n" +
+        "TraditionalWeatherwear,トラディショナルウェザーウェア,トラディショナルウェザーウェア,カスタム名詞\n" +
+        "Tricker's,トリッカーズ,トリッカーズ,カスタム名詞\n" +
+        "Triumph,トリンフ,トリンフ,カスタム名詞\n" +
+        "TROVE,トローヴ,トローヴ,カスタム名詞\n" +
+        "TRUSSARDI,トラサルディ,トラサルディ,カスタム名詞\n" +
+        "TSUCHIYAKABAN,ツチヤカバン,ツチヤカバン,カスタム名詞\n" +
+        "TSUMORICHISATO,ツモリチサト,ツモリチサト,カスタム名詞\n" +
+        "TULLY'SCOFFEE,タリーズコーヒー,タリーズコーヒー,カスタム名詞\n" +
+        "UGG,アグ,アグ,カスタム名詞\n" +
+        "UJOH,ウジョウ,ウジョウ,カスタム名詞\n" +
+        "uka,ウカ,ウカ,カスタム名詞\n" +
+        "UNDECORATED,アンデコレイテッド,アンデコレイテッド,カスタム名詞\n" +
+        "UNDEFEATED,アンディフィーテッド,アンディフィーテッド,カスタム名詞\n" +
+        "UNDERCOVER,アンダーカバー,アンダーカバー,カスタム名詞\n" +
+        "uniformexperiment,ユニフォームエクスペリメント,ユニフォームエクスペリメント,カスタム名詞\n" +
+        "UNIQLO,ユニクロ,ユニクロ,カスタム名詞\n" +
+        "UNITEDARROWS,ユナイテッドアローズ,ユナイテッドアローズ,カスタム名詞\n" +
+        "UNITEDNUDE,ユナイテッドヌード,ユナイテッドヌード,カスタム名詞\n" +
+        "UNITEDSTANDARD,ユナイテッドスタンダード,ユナイテッドスタンダード,カスタム名詞\n" +
+        "UNITEDTOKYO,ユナイテッドトウキョウ,ユナイテッドトウキョウ,カスタム名詞\n" +
+        "UNITUS,ユニタス,ユニタス,カスタム名詞\n" +
+        "UNUSED,アンユーズド,アンユーズド,カスタム名詞\n" +
+        "URBANRESEARCH,アーバンリサーチ,アーバンリサーチ,カスタム名詞\n" +
+        "URU,ウル,ウル,カスタム名詞\n" +
+        "VACHERONCONSTANTIN,ヴァシュロン・コンスタンタン,ヴァシュロン・コンスタンタン,カスタム名詞\n" +
+        "VAINLARCHIVE,ヴェイルアーカイブ,ヴェイルアーカイブ,カスタム名詞\n" +
+        "VALENTINO,ヴァレンティノ,ヴァレンティノ,カスタム名詞\n" +
+        "VALMONT,ヴァルモン,ヴァルモン,カスタム名詞\n" +
+        "VanCleef&Arpels,ヴァンクリーフ&アーペル,ヴァンクリーフ&アーペル,カスタム名詞\n" +
+        "vanessabruno,ヴァネッサブリューノ,ヴァネッサブリューノ,カスタム名詞\n" +
+        "VANS,ヴァンズ,ヴァンズ,カスタム名詞\n" +
+        "VEIN,ヴェイン,ヴェイン,カスタム名詞\n" +
+        "VENDOMEAOYAMA,ヴァンドーム青山,ヴァンドーム青山,カスタム名詞\n" +
+        "Veritecoeur,ヴェリテクール,ヴェリテクール,カスタム名詞\n" +
+        "VERSACE,ヴェルサーチ,ヴェルサーチ,カスタム名詞\n" +
+        "VersusVersace,ヴェルサスヴェルサーチ,ヴェルサスヴェルサーチ,カスタム名詞\n" +
+        "VETEMENTS,ヴェトモン,ヴェトモン,カスタム名詞\n" +
+        "VICTIM,ヴィクティム,ヴィクティム,カスタム名詞\n" +
+        "Visee,ヴィセ,ヴィセ,カスタム名詞\n" +
+        "visvim,ヴィズビム,ヴィズビム,カスタム名詞\n" +
+        "VIVIANO,ヴィビアーノ,ヴィビアーノ,カスタム名詞\n" +
+        "VivienneWestwood,ヴィヴィアンウエストウッド,ヴィヴィアンウエストウッド,カスタム名詞\n" +
+        "WACKOMARIA,ワコマリア,ワコマリア,カスタム名詞\n" +
+        "WACOAL,ワコール,ワコール,カスタム名詞\n" +
+        "WAKO,ワコー,ワコー,カスタム名詞\n" +
+        "WEDGWOOD,ウェッジウッド,ウェッジウッド,カスタム名詞\n" +
+        "WEWILL,ウィーウィル,ウィーウィル,カスタム名詞\n" +
+        "WEYEP,ウェイエップ,ウェイエップ,カスタム名詞\n" +
+        "WhiteMountaineering,ホワイトマウンテニアリング,ホワイトマウンテニアリング,カスタム名詞\n" +
+        "WHIZLIMITED,ウィズリミテッド,ウィズリミテッド,カスタム名詞\n" +
+        "wizzard,ウィザード,ウィザード,カスタム名詞\n" +
+        "wjk,ダブルジェイケイ,ダブルジェイケイ,カスタム名詞\n" +
+        "wonderland,ワンダーランド,ワンダーランド,カスタム名詞\n" +
+        "WOOLRICH,ウールリッチ,ウールリッチ,カスタム名詞\n" +
+        "WRAPINKNOT,ラップインノット,ラップインノット,カスタム名詞\n" +
+        "X-girl,エックスガール,エックスガール,カスタム名詞\n" +
+        "XLARGE,エクストララージ,エクストララージ,カスタム名詞\n" +
+        "Y's,ワイズ,ワイズ,カスタム名詞\n" +
+        "Y-3,ワイスリー,ワイスリー,カスタム名詞\n" +
+        "YAECA,ヤエカ,ヤエカ,カスタム名詞\n" +
+        "YEAHRIGHT!!,イェアーライト,イェアーライト,カスタム名詞\n" +
+        "YOHEIOHNO,ヨウヘイオオノ,ヨウヘイオオノ,カスタム名詞\n" +
+        "YohjiYamamoto,ヨウジヤマモト,ヨウジヤマモト,カスタム名詞\n" +
+        "YOKE,ヨーク,ヨーク,カスタム名詞\n" +
+        "YOKOCHAN,ヨウコチャン,ヨウコチャン,カスタム名詞\n" +
+        "yoshieinaba,ヨシエイナバ,ヨシエイナバ,カスタム名詞\n" +
+        "yoshiokubo,ヨシオクボ,ヨシオクボ,カスタム名詞\n" +
+        "youozeki,ユウオゼキ,ユウオゼキ,カスタム名詞\n" +
+        "yuhaku,ユハク,ユハク,カスタム名詞\n" +
+        "YUKI,ユキ,ユキ,カスタム名詞\n" +
+        "YUKIHASHIMOTO,ユキハシモト,ユキハシモト,カスタム名詞\n" +
+        "YUKITORII,ユキトリイ,ユキトリイ,カスタム名詞\n" +
+        "YUKIHEROPRO-WRESTLING,ユキヒーロープロレスリング,ユキヒーロープロレスリング,カスタム名詞\n" +
+        "YUMAKOSHINO,ユウマコシノ,ユウマコシノ,カスタム名詞\n" +
+        "YVANVALENTIN,イヴァンヴァレンタン,イヴァンヴァレンタン,カスタム名詞\n" +
+        "YvesSaintLaurent,イヴサンローラン,イヴサンローラン,カスタム名詞\n" +
+        "YvesSalomon,イヴサロモン,イヴサロモン,カスタム名詞\n" +
+        "ZANELLATO,ザネラート,ザネラート,カスタム名詞\n" +
+        "ZARA,ザラ,ザラ,カスタム名詞\n" +
+        "ZEGNA,ゼニア,ゼニア,カスタム名詞\n" +
+        "ZEROHALLIBURTON,ゼロハリバートン,ゼロハリバートン,カスタム名詞\n" +
+        "Zoff,ゾフ,ゾフ,カスタム名詞\n" +
+        "ZUCCa,ズッカ,ズッカ,カスタム名詞\n" +
+        "08sircus,ゼロエイトサーカス,ゼロエイトサーカス,カスタム名詞\n" +
+        "1/2Un-Demi,イチニハンアンデミ,イチニハンアンデミ,カスタム名詞\n" +
+        "1017ALYX9SM,テンセブンアリクスナインエスエム,テンセブンアリクスナインエスエム,カスタム名詞\n" +
+        "3.1PhillipLim,サンピョイチフィリップリム,サンピョイチフィリップリム,カスタム名詞\n" +
+        "5-knot.....,ゴーカノット,ゴーカノット,カスタム名詞\n" +
+        "999.9,キューキューキューテンキュー,キューキューキューテンキュー,カスタム名詞\n";
 }
