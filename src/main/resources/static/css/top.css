@@ -1,6 +1,10 @@
 .top {
     display: flex;
     flex-flow: column;
+    height: 100vh;
+    justify-content: center;
+    align-items: center;
+
 }
 
 .top-title {
@@ -9,14 +13,4 @@
 
 .top-form {
     text-align: center;
-}
-
-.top-button {
-    margin-top: 20px;
-    text-align: center;
-}
-
-
-.top-form-input {
-
 }
